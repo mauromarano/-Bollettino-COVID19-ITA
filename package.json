@@ -1,0 +1,29 @@
+{
+  "name": "bollettino-covid19-ita",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "dependencies": {
+    "axios": "^0.21.0",
+    "express": "^4.17.1",
+    "fs": "0.0.1-security",
+    "mongoose": "^5.10.11",
+    "node-telegram-bot-api": "^0.50.0",
+    "nodemon": "^2.0.6"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gagginaspinnata/Bollettino-COVID19-ITA.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gagginaspinnata/Bollettino-COVID19-ITA/issues"
+  },
+  "homepage": "https://github.com/gagginaspinnata/Bollettino-COVID19-ITA#readme"
+}
