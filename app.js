@@ -47,10 +47,14 @@ async function getSource(url, proxy = false) {
   }
 }
 
+
+// Prende in ingresso una data nel formato 2020-02-24T18:00:00
+// Ne ritorna solo la prima parte fino alla T
 function clean_date(date) {
   return date.split("T")[0].trim();
 }
 
+// Ritorna la data dell'ultimo aggiornamento pubblicato sulla repo della protezione civile
 async function get_last_update_online() {
   const source = await getSource(url);
   const today_index = source.length - 1;
@@ -60,6 +64,7 @@ async function get_last_update_online() {
 }
 
 
+// Funzione che ritorna la data odierna nel formato 2020-02-24
 function get_today_date() {
   let today = new Date().toISOString();
   return clean_date(today);
@@ -67,6 +72,9 @@ function get_today_date() {
 
 
 
+// Verifica se c'è un aggiornamento da mandare nel canale.
+// nello specifico controlla che la data dell ultimo aggiornamento pubblicato nella repo della protezione civile
+// non sia già presente nel database
 async function is_there_an_update() {
   const last_update_online = await get_last_update_online();
   console.log(`The last online update is ${last_update_online}`);
@@ -76,6 +84,7 @@ async function is_there_an_update() {
 
 }
 
+// Ritorna un oggetto contenente tutti relativi all ultimo bollettino
 async function get_data_to_send() {
   const data = await getSource(url);
 
@@ -105,11 +114,13 @@ async function get_data_to_send() {
 }
 
 
+// manda la notifica nel canale
 async function send_notification(stats) {
   let message = `Data: ${stats.data}\nNuovi positivi: ${stats.nuovi_positivi}\nTamponi effettuati: ${stats.tamponi}\nPercentuale positivita su tamponi effettuati: ${stats.percentuale_positivi_tamponi}\nPersone in terapia intensiva: ${stats.terapia_intensiva}\nNuove terapie intensive: ${stats.delta_terapia_intensiva}\nNuovi deceduti: ${stats.deceduti}`;
   await bot.sendMessage(channelID, message);
 }
 
+// Logica di funzionamento principale
 async function main() {
   DB.connect();
   const to_update = await is_there_an_update();
@@ -129,6 +140,7 @@ async function main() {
 //   main();
 // })();
 
+// creazione di un endpoint che triggera la funzione main() che avvia il controllo e l invio della notifica sul canale
 app.get(`/covid19/${config.password}`, async (req, res) => {
   main();
   res.sendStatus(200);
