@@ -27,3 +27,8 @@ Prima di iniziare
 -----------------
 
 Rinominare *config.template.js* in *config.js* inserendo tutti i dati per la configurazione.
+
+Grafici
+---------
+
+I grafici vengono realizzati tramite [quickchart.io](https://quickchart.io/), basato su [chart.js](https://www.chartjs.org/).
