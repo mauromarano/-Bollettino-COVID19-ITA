@@ -278,20 +278,6 @@ async function main() {
   DB.disconnect();
 }
 
-async function main2() {
-  downloadChart(
-    "percentuale_positivi_tamponi",
-    "percentuale_positivi_tamponi",
-    7
-  );
-}
-
-// self invoking function
-// (async () => {
-//   await bot.sendMessage('41734766','Prova dal bot')
-
-// })();
-
 app.get(`/covid19/${config.password}`, async (req, res) => {
   main();
   res.sendStatus(200);
