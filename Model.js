@@ -26,6 +26,22 @@ function connect() {
 }
 
 const Updates = mongoose.model("Updates", { data: { type: String } });
+const covidupdates = mongoose.model('covidupdates',{
+  nuovi_positivi: Number,
+  tamponi: Number,
+  percentuale_positivi_tamponi: Number,
+  terapia_intensiva:Number,
+  delta_terapia_intensiva:Number,
+  deceduti:Number,
+  data: String,
+});
+
+async function copyDatabase(tables){
+  for(table of tables){
+    let update = new covidupdates(table);
+    await update.save();
+  }
+}
 
 async function saveLastUpdate(data) {
   try {
@@ -66,4 +82,5 @@ module.exports = {
   disconnect,
   connect,
   isNew,
+  copyDatabase
 };
