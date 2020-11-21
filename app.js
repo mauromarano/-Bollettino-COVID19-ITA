@@ -27,6 +27,9 @@ const url =
 const imageFolder = "images";
 const imageName = "chart.png";
 
+// di quanti giorni mostrare i grafici?
+const daysforcharts = 60;
+
 // get a source code of an html page
 async function getSource(url, proxy = false) {
   const timOut = 4000;
@@ -254,16 +257,16 @@ async function main() {
     if (current_day % 3 == 0) {
       try {
         // Creazione del grafico
-        await sendChart("Nuovi Positivi - 30 giorni", "nuovi_positivi", 30);
+        await sendChart(`Nuovi Positivi - ${daysforcharts} giorni`, "nuovi_positivi", daysforcharts);
         await sendChart(
-          "Percentuale di positivi su tamponi effettuati - 30 giorni",
+         `Percentuale di positivi su tamponi effettuati - ${daysforcharts} giorni`,
           "percentuale_positivi_tamponi",
-          30
+          daysforcharts
         );
         await sendChart(
-          "Terapie Intensive - 30 giorni",
+          `Terapie Intensive - ${daysforcharts} giorni`,
           "terapia_intensiva",
-          30
+          daysforcharts
         );
       } catch (error) {
         console.log(`Impossibile creare il grafico`);
