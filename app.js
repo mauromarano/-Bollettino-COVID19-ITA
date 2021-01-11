@@ -17,6 +17,7 @@ const port = process.env.PORT || 3000;
 const bot = new TelegramBot(config.token, {
   polling: true,
 });
+
 const channelID = config.channelID;
 
 // Global variables
@@ -28,7 +29,10 @@ const imageFolder = "images";
 const imageName = "chart.png";
 
 // di quanti giorni mostrare i grafici?
-const daysforcharts = 60;
+const daysforcharts = 90;
+
+const url_vaccini =
+  "https://raw.githubusercontent.com/italia/covid19-opendata-vaccini/master/dati/vaccini-summary-latest.json";
 
 // get a source code of an html page
 async function getSource(url, proxy = false) {
@@ -104,7 +108,7 @@ async function get_all_data_to_send() {
         ultimi_tamponi += tests;
         terapia_intensiva_ieri += terapia_intensiva;
       } else {
-        tests = day["tamponi"] - ultimi_tamponi;
+        tests = Math.abs(day["tamponi"] - ultimi_tamponi);
         ultimi_tamponi += tests;
         terapia_intensiva_ieri = terapia_intensiva;
       }
@@ -132,8 +136,26 @@ async function get_all_data_to_send() {
   }
 }
 
-async function send_notification(stats) {
-  let message = `Data: ${stats.data}\nNuovi positivi: ${stats.nuovi_positivi}\nTamponi effettuati: ${stats.tamponi}\nPercentuale positivita su tamponi effettuati: ${stats.percentuale_positivi_tamponi}\nPersone in terapia intensiva: ${stats.terapia_intensiva}\nNuove terapie intensive: ${stats.delta_terapia_intensiva}\nNuovi deceduti: ${stats.deceduti}`;
+async function send_notification(stats, vaccini) {
+  // totale_dosi_consegnate,
+  // totale_dosi_somministrate,
+  // percentuale_vaccinazioni_su_dosi_consegnate,
+  // percentuale_vaccinazioni_su_popolazione_nazionale,
+  // dettaglio_regionale:vaccini
+
+  // Mando la prima notifica relativa allo stato epidemionelogic..qualcosa
+  let message = `Data: ${stats.data}\nNuovi positivi: ${stats.nuovi_positivi}\nTamponi effettuati: ${stats.tamponi}\nPercentuale positivita su tamponi effettuati: ${stats.percentuale_positivi_tamponi}\nPersone in terapia intensiva: ${stats.terapia_intensiva}\nDelta terapie intensive: ${stats.delta_terapia_intensiva}\nNuovi deceduti: ${stats.deceduti}`;
+  await bot.sendMessage(channelID, message);
+
+  // mando la seconda notifica relativa ai vaccini
+  message = `In Italia sono state vaccinate ${vaccini.totale_dosi_somministrate} persone. Il ${vaccini.percentuale_vaccinazioni_su_popolazione_nazionale}% della popolazione nazionale.\nLe dosi totali di vaccino consegnate sono pari a ${vaccini.totale_dosi_consegnate} unita. Di queste, ne sono state somministrate il ${vaccini.percentuale_vaccinazioni_su_dosi_consegnate}%.\n\nDettaglio regionale:\n\n`;
+
+  for (let regione of vaccini.dettaglio_regionale) {
+    message =
+      message +
+      `area: ${regione["area"]}\ndosi somministrate: ${regione["dosi_somministrate"]}\ndosi consegnate: ${regione["dosi_consegnate"]}\npercentuale somministrazione: ${regione["percentuale_somministrazione"]}%\n\n`;
+  }
+
   await bot.sendMessage(channelID, message);
 }
 
@@ -216,7 +238,6 @@ async function getDataForChart(y, day = 0) {
 // ed il nome dei dati da mostrare sull asse y
 // In più si può specificare il parametro day per ricevere solo i dati degli ultimi x giorni
 async function sendChart(label, indexName, day = 0) {
-
   // Ricevo i dati
   const dataForChart = await getDataForChart(indexName, day);
   let xaxis = dataForChart[0];
@@ -232,6 +253,37 @@ async function sendChart(label, indexName, day = 0) {
   await bot.sendPhoto(channelID, `./${imageFolder}/${imageName}`);
 }
 
+async function getVacciniData() {
+  // Prendo i dati dei vaccini regione per regione
+  let vaccini = await getSource(url_vaccini);
+  vaccini = vaccini.data;
+
+  let totale_dosi_somministrate = 0;
+  let totale_dosi_consegnate = 0;
+
+  for (let regione of vaccini) {
+    totale_dosi_somministrate += regione["dosi_somministrate"];
+    totale_dosi_consegnate += regione["dosi_consegnate"];
+  }
+  const percentuale_vaccinazioni_su_dosi_consegnate = (
+    (totale_dosi_somministrate / totale_dosi_consegnate) *
+    100
+  ).toFixed(2);
+
+  const popolazione_nazionale = 60365000;
+  const percentuale_vaccinazioni_su_popolazione_nazionale = (
+    (totale_dosi_somministrate / popolazione_nazionale) *
+    100
+  ).toFixed(2);
+  return {
+    totale_dosi_consegnate,
+    totale_dosi_somministrate,
+    percentuale_vaccinazioni_su_dosi_consegnate,
+    percentuale_vaccinazioni_su_popolazione_nazionale,
+    dettaglio_regionale: vaccini,
+  };
+}
+
 async function main() {
   // Mi connetto al DB
   DB.connect();
@@ -245,8 +297,11 @@ async function main() {
     // Prendo solo l ultimo oggetto dell array
     let result = results[results.length - 1];
 
+    // prendo i dati dei vaccini
+    let vaccini = await getVacciniData();
+
     // Manda la notifica
-    send_notification(result);
+    send_notification(result, vaccini);
 
     // Salva la data dell ultima notifica inviata nel DB
     await DB.saveLastUpdate(result["data"]);
@@ -257,9 +312,13 @@ async function main() {
     if (current_day % 3 == 0) {
       try {
         // Creazione del grafico
-        await sendChart(`Nuovi Positivi - ${daysforcharts} giorni`, "nuovi_positivi", daysforcharts);
         await sendChart(
-         `Percentuale di positivi su tamponi effettuati - ${daysforcharts} giorni`,
+          `Nuovi Positivi - ${daysforcharts} giorni`,
+          "nuovi_positivi",
+          daysforcharts
+        );
+        await sendChart(
+          `Percentuale di positivi su tamponi effettuati - ${daysforcharts} giorni`,
           "percentuale_positivi_tamponi",
           daysforcharts
         );
@@ -280,6 +339,7 @@ async function main() {
   // Chiudo la connessione al DB
   DB.disconnect();
 }
+
 
 app.get(`/covid19/${config.password}`, async (req, res) => {
   main();
