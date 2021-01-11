@@ -15,6 +15,8 @@ F.A.Q.
 
 *Tutti i dati provengono dalla repository ufficiale della [Presidenza del Consiglio dei Ministri - Dipartimento della Protezione Civile](https://github.com/pcm-dpc/COVID-19)*
 
+*I dati relativi ai vaccini vendono dal [repository ufficiale](https://github.com/italia/covid19-opendata-vaccini)*.
+
 **Il canale telegram è gratis? Ci sono pubblicità?**
 
 *Il canale è completamente gratuito. Non ci sono pubblicità e tutto il progetto è a vantaggio della collettività.*
@@ -32,3 +34,12 @@ Grafici
 ---------
 
 I grafici vengono realizzati tramite [quickchart.io](https://quickchart.io/), basato su [chart.js](https://www.chartjs.org/).
+
+
+Installazione con Docker
+---------
+
+1. `git clone git@github.com:gagginaspinnata/Bollettino-COVID19-ITA.git`
+2. `cd Bollettino-COVID19-ITA`
+3. `docker build -t bollettinocovid19 .`
+4. `docker run -p 5000:5000 bollettinocovid19`
