@@ -13,7 +13,7 @@ const Path = require("path");
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Bot config
+// // Bot config
 const bot = new TelegramBot(config.token, {
   polling: true,
 });
@@ -33,6 +33,13 @@ const daysforcharts = 90;
 
 const url_vaccini =
   "https://raw.githubusercontent.com/italia/covid19-opendata-vaccini/master/dati/vaccini-summary-latest.json";
+
+const url_world_vaccinations =
+  "https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/vaccinations/vaccinations.csv";
+
+// da verificare se conviene usare questo url https://raw.githubusercontent.com/italia/covid19-opendata-vaccini/master/dati/anagrafica-vaccini-summary-latest.json
+const url_persone_vaccinate =
+  "https://raw.githubusercontent.com/italia/covid19-opendata-vaccini/master/dati/somministrazioni-vaccini-latest.json";
 
 // get a source code of an html page
 async function getSource(url, proxy = false) {
@@ -136,7 +143,7 @@ async function get_all_data_to_send() {
   }
 }
 
-async function send_notification(stats, vaccini) {
+async function send_notification(stats, vaccini, vaccini_mondiali) {
   // totale_dosi_consegnate,
   // totale_dosi_somministrate,
   // percentuale_vaccinazioni_su_dosi_consegnate,
@@ -144,16 +151,44 @@ async function send_notification(stats, vaccini) {
   // dettaglio_regionale:vaccini
 
   // Mando la prima notifica relativa allo stato epidemionelogic..qualcosa
-  let message = `Data: ${stats.data}\nNuovi positivi: ${stats.nuovi_positivi}\nTamponi effettuati: ${stats.tamponi}\nPercentuale positivita su tamponi effettuati: ${stats.percentuale_positivi_tamponi}\nPersone in terapia intensiva: ${stats.terapia_intensiva}\nDelta terapie intensive: ${stats.delta_terapia_intensiva}\nNuovi deceduti: ${stats.deceduti}`;
+  let message = `Data: ${stats.data}\nNuovi positivi: ${easyNumbers(
+    stats.nuovi_positivi
+  )}\nTamponi effettuati: ${easyNumbers(
+    stats.tamponi
+  )}\nPercentuale positivita su tamponi effettuati: ${
+    stats.percentuale_positivi_tamponi
+  }\nPersone in terapia intensiva: ${
+    stats.terapia_intensiva
+  }\nDelta terapie intensive: ${
+    stats.delta_terapia_intensiva
+  }\nNuovi deceduti: ${stats.deceduti}`;
   await bot.sendMessage(channelID, message);
 
   // mando la seconda notifica relativa ai vaccini
-  message = `In Italia sono state vaccinate ${vaccini.totale_dosi_somministrate} persone. Il ${vaccini.percentuale_vaccinazioni_su_popolazione_nazionale}% della popolazione nazionale.\nLe dosi totali di vaccino consegnate sono pari a ${vaccini.totale_dosi_consegnate} unita. Di queste, ne sono state somministrate il ${vaccini.percentuale_vaccinazioni_su_dosi_consegnate}%.\n\nDettaglio regionale:\n\n`;
+  message = `In Italia hanno ricevuto la prima dose ${easyNumbers(
+    vaccini.primadose
+  )} persone.\nIn italia hanno ricevuto la seconda dose (ed i vaccini monodose) ${easyNumbers(
+    vaccini.secondadose
+  )} persone, Il ${
+    vaccini.percentuale_vaccinazioni_su_popolazione_nazionale
+  }% della popolazione nazionale.\nLe dosi totali di vaccino consegnate sono pari a ${easyNumbers(
+    vaccini.totale_dosi_consegnate
+  )} unita. Di queste, ne sono state somministrate il ${
+    vaccini.percentuale_vaccinazioni_su_dosi_consegnate
+  }%.\nNel mondo sono state somministrate ${
+    vaccini_mondiali.popolazione_mondiale_vaccinata
+  } dosi di vaccino.\n\nDettaglio regionale:\n\n`;
 
   for (let regione of vaccini.dettaglio_regionale) {
     message =
       message +
-      `area: ${regione["area"]}\ndosi somministrate: ${regione["dosi_somministrate"]}\ndosi consegnate: ${regione["dosi_consegnate"]}\npercentuale somministrazione: ${regione["percentuale_somministrazione"]}%\n\n`;
+      `area: ${regione["area"]}\ndosi somministrate: ${easyNumbers(
+        regione["dosi_somministrate"]
+      )}\ndosi consegnate: ${easyNumbers(
+        regione["dosi_consegnate"]
+      )}\npercentuale somministrazione: ${
+        regione["percentuale_somministrazione"]
+      }%\n\n`;
   }
 
   await bot.sendMessage(channelID, message);
@@ -258,6 +293,17 @@ async function getVacciniData() {
   let vaccini = await getSource(url_vaccini);
   vaccini = vaccini.data;
 
+  let res = await getSource('https://raw.githubusercontent.com/italia/covid19-opendata-vaccini/master/dati/anagrafica-vaccini-summary-latest.json');
+  res = res["data"];
+  let primadose = 0;
+  let secondadose = 0;
+  for(let i of res){
+    primadose+=i['prima_dose'];
+    secondadose+=i['seconda_dose']
+  }
+
+  const persone_vaccinate = secondadose;
+
   let totale_dosi_somministrate = 0;
   let totale_dosi_consegnate = 0;
 
@@ -272,15 +318,33 @@ async function getVacciniData() {
 
   const popolazione_nazionale = 60365000;
   const percentuale_vaccinazioni_su_popolazione_nazionale = (
-    (totale_dosi_somministrate / popolazione_nazionale) *
+    (persone_vaccinate / popolazione_nazionale) *
     100
   ).toFixed(2);
+
   return {
     totale_dosi_consegnate,
     totale_dosi_somministrate,
     percentuale_vaccinazioni_su_dosi_consegnate,
     percentuale_vaccinazioni_su_popolazione_nazionale,
     dettaglio_regionale: vaccini,
+    persone_vaccinate,
+    primadose,
+    secondadose
+  };
+}
+
+async function vaccinazioni_mondiali() {
+  const str = (await getSource(url_world_vaccinations)).trim();
+  // Da provare questa nuova regex
+  const regex = /World.+\d{4}-\d{2}-\d{2},(\d+).+\sZ/;
+  const result = regex.exec(str);
+
+  const popolazione_mondiale_vaccinata = easyNumbers(result[1]);
+  //const percentuale_popolazione_mondiale_vaccinata = result[2];
+  return {
+    popolazione_mondiale_vaccinata,
+    percentuale_popolazione_mondiale_vaccinata:0,
   };
 }
 
@@ -297,11 +361,14 @@ async function main() {
     // Prendo solo l ultimo oggetto dell array
     let result = results[results.length - 1];
 
-    // prendo i dati dei vaccini
-    let vaccini = await getVacciniData();
+    // prendo i dati nazionali dei vaccini
+    const vaccini = await getVacciniData();
+
+    // prendo i dati mondiali dei vaccini
+    const vaccini_mondiali = await vaccinazioni_mondiali();
 
     // Manda la notifica
-    send_notification(result, vaccini);
+    send_notification(result, vaccini, vaccini_mondiali);
 
     // Salva la data dell ultima notifica inviata nel DB
     await DB.saveLastUpdate(result["data"]);
@@ -340,6 +407,36 @@ async function main() {
   DB.disconnect();
 }
 
+function easyNumbers(num) {
+  if (num < 1000) {
+    return num;
+  } else if (num >= 1000 && num < 1000000) {
+    return (num / 1000).toFixed(2) + " mila";
+  } else if (num >= 1000000 && num < 1000000000) {
+    return (num / 1000000).toFixed(2) + " milioni";
+  } else if (num > 1000000000) {
+    return (num / 1000000000).toFixed(2) + " miliardi";
+  }
+}
+
+async function numero_persone_vaccinate() {
+  let res = await getSource(url_persone_vaccinate);
+  res = res["data"];
+
+  //  controllo Pfizer/BioNTech
+  let vaccinate = 0;
+  for (let r of res) {
+    if (r.fornitore == "Pfizer/BioNTech") {
+      vaccinate += r.seconda_dose;
+    }
+  }
+  return vaccinate;
+}
+
+// self invoking function
+// (async () => {
+//   numero_persone_vaccinate()
+// })();
 
 app.get(`/covid19/${config.password}`, async (req, res) => {
   main();
