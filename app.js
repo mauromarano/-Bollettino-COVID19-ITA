@@ -29,7 +29,10 @@ const imageFolder = "images";
 const imageName = "chart.png";
 
 // di quanti giorni mostrare i grafici?
-const daysforcharts = 90;
+const daysforcharts = 120;
+
+// Popolazione nazionale
+const popolazione_nazionale = 60365000;
 
 const url_vaccini =
   "https://raw.githubusercontent.com/italia/covid19-opendata-vaccini/master/dati/vaccini-summary-latest.json";
@@ -165,13 +168,13 @@ async function send_notification(stats, vaccini, vaccini_mondiali) {
   await bot.sendMessage(channelID, message);
 
   // mando la seconda notifica relativa ai vaccini
-  message = `In Italia hanno ricevuto la prima dose ${easyNumbers(
+  message = `Italiani che hanno ricevuto la prima dose: ${easyNumbers(
     vaccini.primadose
-  )} persone.\nIn italia hanno ricevuto la seconda dose (ed i vaccini monodose) ${easyNumbers(
+  )}.\nIl ${(easyNumbers(vaccini.percentuale_prima_dose_su_popolazione_nazionale))}% della popolazione nazionale.\n\nItaliani che hanno ricevuto la seconda dose (ed i vaccini monodose): ${easyNumbers(
     vaccini.secondadose
-  )} persone, Il ${
+  )}.\nIl ${
     vaccini.percentuale_vaccinazioni_su_popolazione_nazionale
-  }% della popolazione nazionale.\nLe dosi totali di vaccino consegnate sono pari a ${easyNumbers(
+  }% della popolazione nazionale.\n\nLe dosi totali di vaccino consegnate sono pari a ${easyNumbers(
     vaccini.totale_dosi_consegnate
   )} unita. Di queste, ne sono state somministrate il ${
     vaccini.percentuale_vaccinazioni_su_dosi_consegnate
@@ -316,9 +319,14 @@ async function getVacciniData() {
     100
   ).toFixed(2);
 
-  const popolazione_nazionale = 60365000;
+  
   const percentuale_vaccinazioni_su_popolazione_nazionale = (
     (persone_vaccinate / popolazione_nazionale) *
+    100
+  ).toFixed(2);
+
+  const percentuale_prima_dose_su_popolazione_nazionale = (
+    (primadose / popolazione_nazionale) *
     100
   ).toFixed(2);
 
@@ -327,6 +335,7 @@ async function getVacciniData() {
     totale_dosi_somministrate,
     percentuale_vaccinazioni_su_dosi_consegnate,
     percentuale_vaccinazioni_su_popolazione_nazionale,
+    percentuale_prima_dose_su_popolazione_nazionale,
     dettaglio_regionale: vaccini,
     persone_vaccinate,
     primadose,
